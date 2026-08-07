@@ -97,10 +97,22 @@ class PhoneFrame extends StatelessWidget {
 /// ║  整体作为截图目标（外层包 RepaintBoundary）              ║
 /// ╚══════════════════════════════════════════════════════════╝
 
-/// 状态栏（仿 iOS 全面屏截图：时间 + 信号 / WiFi / 电池）
+/// 状态栏（仿 iOS 全面屏：时间 + 信号 / WiFi / 电池，全部使用真机矢量素材）
 class StatusBar extends StatelessWidget {
   final String time;
-  const StatusBar({required this.time, super.key});
+  final int batteryPercent; // 0-100
+  final bool charging;
+  final int signalLevel; // 1-4 格
+  final bool showWifi;
+
+  const StatusBar({
+    required this.time,
+    this.batteryPercent = 100,
+    this.charging = false,
+    this.signalLevel = 4,
+    this.showWifi = true,
+    super.key,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -114,16 +126,108 @@ class StatusBar extends StatelessWidget {
           Text(time, style: WeChatTheme.statusBarTimeStyle),
           Row(
             children: [
-              Icon(Icons.signal_cellular_4_bar,
-                  size: WeChatTheme.statusBarIconSize, color: WeChatTheme.statusBarIconColor),
+              _SignalIcon(level: signalLevel),
               SizedBox(width: WeChatTheme.statusBarIconGap),
-              Icon(Icons.wifi,
-                  size: WeChatTheme.statusBarIconSize, color: WeChatTheme.statusBarIconColor),
-              SizedBox(width: WeChatTheme.statusBarIconGap),
-              Icon(Icons.battery_full,
-                  size: WeChatTheme.statusBarBatterySize, color: WeChatTheme.statusBarIconColor),
+              if (showWifi) ...[
+                const _WifiIcon(),
+                SizedBox(width: WeChatTheme.statusBarIconGap),
+              ],
+              _BatteryIcon(percent: batteryPercent, charging: charging),
             ],
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 蜂窝信号：按档位（1-4）切换真机矢量图
+class _SignalIcon extends StatelessWidget {
+  final int level;
+  const _SignalIcon({required this.level});
+
+  @override
+  Widget build(BuildContext context) {
+    final lvl = level.clamp(1, 4);
+    return SvgPicture.asset(
+      'assets/icons/status_bar/cellular_signal_$lvl.svg',
+      width: WeChatTheme.statusBarIconSize,
+      height: WeChatTheme.statusBarIconSize * 12 / 16,
+      colorFilter:
+          ColorFilter.mode(WeChatTheme.statusBarIconColor, BlendMode.srcIn),
+    );
+  }
+}
+
+/// WiFi（真机矢量图）
+class _WifiIcon extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return SvgPicture.asset(
+      'assets/icons/status_bar/wifi.svg',
+      width: WeChatTheme.statusBarIconSize,
+      height: WeChatTheme.statusBarIconSize * 14 / 18,
+      colorFilter:
+          ColorFilter.mode(WeChatTheme.statusBarIconColor, BlendMode.srcIn),
+    );
+  }
+}
+
+/// 电池：外壳用真机矢量图，电量填充按百分比由代码绘制
+/// （低电量 ≤20% 变红、充电时变绿并显示闪电）
+class _BatteryIcon extends StatelessWidget {
+  final int percent;
+  final bool charging;
+  const _BatteryIcon({required this.percent, required this.charging});
+
+  static const double _w = 25, _h = 12.5;
+  static const double _sx = _w / 26, _sy = _h / 13;
+  static const double _innerPad = 0.6;
+
+  @override
+  Widget build(BuildContext context) {
+    final double ix = (0.8 + _innerPad) * _sx;
+    final double iy = (0.8 + _innerPad) * _sy;
+    final double iw = (21 - 2 * _innerPad) * _sx;
+    final double ih = (11.4 - 2 * _innerPad) * _sy;
+    final p = percent.clamp(0, 100);
+    final Color fill = charging
+        ? WeChatTheme.brandGreen
+        : (p <= 20 ? const Color(0xFFF5343F) : WeChatTheme.statusBarIconColor);
+    return SizedBox(
+      width: _w,
+      height: _h,
+      child: Stack(
+        children: [
+          SvgPicture.asset(
+            'assets/icons/status_bar/battery_shell.svg',
+            width: _w,
+            height: _h,
+            colorFilter: ColorFilter.mode(
+                WeChatTheme.statusBarIconColor, BlendMode.srcIn),
+          ),
+          Positioned(
+            left: ix,
+            top: iy,
+            width: iw * p / 100,
+            height: ih,
+            child: Container(
+              decoration: BoxDecoration(
+                color: fill,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          if (charging)
+            Center(
+              child: SvgPicture.asset(
+                'assets/icons/status_bar/battery_bolt.svg',
+                width: _h * 0.62 * 24 / 13,
+                height: _h * 0.62,
+                colorFilter:
+                    const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+              ),
+            ),
         ],
       ),
     );
@@ -728,7 +832,15 @@ class _ChatPreviewState extends State<ChatPreview> {
       color: WeChatTheme.pageBg,
       child: Column(
         children: [
-          StatusBar(time: formatClock(DateTime.now())),
+          StatusBar(
+            time: (widget.model.statusBarTime?.isNotEmpty == true)
+                ? widget.model.statusBarTime!
+                : formatClock(DateTime.now()),
+            batteryPercent: widget.model.batteryPercent,
+            charging: widget.model.isCharging,
+            signalLevel: widget.model.signalLevel,
+            showWifi: widget.model.showWifi,
+          ),
           ChatAppBar(
             title: widget.model.title,
             isGroup: widget.model.isGroup,

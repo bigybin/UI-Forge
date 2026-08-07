@@ -73,12 +73,24 @@ class ChatModel {
   List<Member> members;
   List<ChatMessage> messages;
 
+  // —— 系统状态栏（真机素材可配置项）——
+  String? statusBarTime; // 留空=当前时间，如 "9:41"
+  int batteryPercent; // 电池百分比 0-100
+  bool isCharging; // 是否充电中
+  int signalLevel; // 蜂窝信号档位 1-4
+  bool showWifi; // 是否显示 WiFi
+
   ChatModel({
     required this.isGroup,
     required this.title,
     this.showMemberCount = true,
     required this.members,
     required this.messages,
+    this.statusBarTime,
+    this.batteryPercent = 100,
+    this.isCharging = false,
+    this.signalLevel = 4,
+    this.showWifi = true,
   });
 }
 
@@ -112,6 +124,10 @@ ChatModel sampleModel() {
     title: '前端交流群',
     members: members,
     messages: messages,
+    statusBarTime: '9:41',
+    batteryPercent: 82,
+    signalLevel: 4,
+    showWifi: true,
   );
 }
 
@@ -132,5 +148,9 @@ ChatModel singleChatSample() {
     showMemberCount: false,
     members: [me, other],
     messages: messages,
+    statusBarTime: '9:41',
+    batteryPercent: 91,
+    signalLevel: 4,
+    showWifi: true,
   );
 }

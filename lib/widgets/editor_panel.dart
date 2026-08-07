@@ -167,6 +167,94 @@ class _EditorPanelState extends State<EditorPanel> {
             ),
 
             const SizedBox(height: 16),
+            _sectionTitle('系统状态栏'),
+            _card(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Text('电池', style: TextStyle(fontSize: 13)),
+                      const Spacer(),
+                      Text('${model.batteryPercent}%',
+                          style: const TextStyle(fontSize: 13, color: Colors.grey)),
+                    ],
+                  ),
+                  Slider(
+                    value: model.batteryPercent.toDouble(),
+                    min: 0,
+                    max: 100,
+                    divisions: 100,
+                    onChanged: (v) {
+                      model.batteryPercent = v.round();
+                      widget.onChanged();
+                    },
+                  ),
+                  Row(
+                    children: [
+                      const Text('充电中', style: TextStyle(fontSize: 13)),
+                      const Spacer(),
+                      Switch(
+                        value: model.isCharging,
+                        onChanged: (v) {
+                          model.isCharging = v;
+                          widget.onChanged();
+                        },
+                      ),
+                    ],
+                  ),
+                  Row(
+                    children: [
+                      const Text('信号强度', style: TextStyle(fontSize: 13)),
+                      const Spacer(),
+                      DropdownButton<int>(
+                        value: model.signalLevel,
+                        items: const [
+                          DropdownMenuItem(value: 1, child: Text('1 格')),
+                          DropdownMenuItem(value: 2, child: Text('2 格')),
+                          DropdownMenuItem(value: 3, child: Text('3 格')),
+                          DropdownMenuItem(value: 4, child: Text('4 格')),
+                        ],
+                        onChanged: (v) {
+                          if (v != null) {
+                            model.signalLevel = v;
+                            widget.onChanged();
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                  Row(
+                    children: [
+                      const Text('显示 WiFi', style: TextStyle(fontSize: 13)),
+                      const Spacer(),
+                      Switch(
+                        value: model.showWifi,
+                        onChanged: (v) {
+                          model.showWifi = v;
+                          widget.onChanged();
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: _ctrl('status_bar_time', model.statusBarTime ?? ''),
+                    onChanged: (v) {
+                      model.statusBarTime = v.isEmpty ? null : v;
+                      widget.onChanged();
+                    },
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                      hintText: '留空=当前时间，如 9:41',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 16),
             _sectionTitle('聊天类型'),
             _card(
               child: ToggleButtons(
