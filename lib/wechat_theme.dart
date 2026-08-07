@@ -42,6 +42,11 @@ class WeChatTheme {
   static const Color iconColor = Color(0xE6000000); // 图标近黑（通用默认）
   static const Color hintColor = Color(0x4D000000); // 输入框提示灰
 
+  // —— 状态栏电池（iOS 真机色，与系统状态栏一致）——
+  static const Color iosBatteryGreen = Color(0xFF34C759); // 充电 / 满电绿
+  static const Color iosBatteryRed = Color(0xFFFF3B30); // 低电量红（≤20%）
+  static const Color iosBatteryYellow = Color(0xFFFFCC00); // 低电量模式黄
+
   // —— 图标颜色（按区域拆分，便于单独改色）——
   static const Color statusBarIconColor = iconColor; // 状态栏图标
   static const Color appBarIconColor = iconColor; // 导航栏图标

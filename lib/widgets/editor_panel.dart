@@ -237,18 +237,18 @@ class _EditorPanelState extends State<EditorPanel> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 6),
-                  TextField(
-                    controller: _ctrl('status_bar_time', model.statusBarTime ?? ''),
-                    onChanged: (v) {
-                      model.statusBarTime = v.isEmpty ? null : v;
-                      widget.onChanged();
-                    },
-                    decoration: const InputDecoration(
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                      hintText: '留空=当前时间，如 9:41',
-                    ),
+                  Row(
+                    children: [
+                      const Text('电量百分比', style: TextStyle(fontSize: 13)),
+                      const Spacer(),
+                      Switch(
+                        value: model.showBatteryPercent,
+                        onChanged: (v) {
+                          model.showBatteryPercent = v;
+                          widget.onChanged();
+                        },
+                      ),
+                    ],
                   ),
                 ],
               ),

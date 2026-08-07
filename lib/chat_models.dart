@@ -79,6 +79,7 @@ class ChatModel {
   bool isCharging; // 是否充电中
   int signalLevel; // 蜂窝信号档位 1-4
   bool showWifi; // 是否显示 WiFi
+  bool showBatteryPercent; // 是否显示电量百分比（iOS 16 风格，电池内数字）
 
   ChatModel({
     required this.isGroup,
@@ -91,6 +92,7 @@ class ChatModel {
     this.isCharging = false,
     this.signalLevel = 4,
     this.showWifi = true,
+    this.showBatteryPercent = true,
   });
 }
 
@@ -128,6 +130,7 @@ ChatModel sampleModel() {
     batteryPercent: 82,
     signalLevel: 4,
     showWifi: true,
+    showBatteryPercent: true,
   );
 }
 
@@ -152,5 +155,6 @@ ChatModel singleChatSample() {
     batteryPercent: 91,
     signalLevel: 4,
     showWifi: true,
+    showBatteryPercent: true,
   );
 }

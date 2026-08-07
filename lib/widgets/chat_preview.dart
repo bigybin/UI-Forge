@@ -104,6 +104,7 @@ class StatusBar extends StatelessWidget {
   final bool charging;
   final int signalLevel; // 1-4 格
   final bool showWifi;
+  final bool showBatteryPercent; // iOS 16 风格：电量百分比显示在电池内
 
   const StatusBar({
     required this.time,
@@ -111,6 +112,7 @@ class StatusBar extends StatelessWidget {
     this.charging = false,
     this.signalLevel = 4,
     this.showWifi = true,
+    this.showBatteryPercent = true,
     super.key,
   });
 
@@ -132,7 +134,11 @@ class StatusBar extends StatelessWidget {
                 _WifiIcon(),
                 SizedBox(width: WeChatTheme.statusBarIconGap),
               ],
-              _BatteryIcon(percent: batteryPercent, charging: charging),
+              _BatteryIcon(
+                percent: batteryPercent,
+                charging: charging,
+                showPercent: showBatteryPercent,
+              ),
             ],
           ),
         ],
@@ -159,50 +165,110 @@ class _SignalIcon extends StatelessWidget {
   }
 }
 
-/// WiFi（真机矢量图）
+/// WiFi（真机矢量图：以圆点为中心的三段同心弧，完整无裁切）
 class _WifiIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SvgPicture.asset(
       'assets/icons/status_bar/wifi.svg',
       width: WeChatTheme.statusBarIconSize,
-      height: WeChatTheme.statusBarIconSize * 14 / 18,
+      height: WeChatTheme.statusBarIconSize * 18 / 18,
       colorFilter:
           ColorFilter.mode(WeChatTheme.statusBarIconColor, BlendMode.srcIn),
     );
   }
 }
 
-/// 电池：外壳用真机矢量图，电量填充按百分比由代码绘制
-/// （低电量 ≤20% 变红、充电时变绿并显示闪电）
+/// 电池（iOS 16 真机风格）：
+/// - 显示百分比：电池整体填满（黑/绿/红），白色数字居中，无 % 符号（真机行为）
+/// - 不显示百分比：仅描边外壳，内部按实际电量绘制填充条
+/// - 充电时绿色填充 + 闪电；低电量（≤20%）红色填充
 class _BatteryIcon extends StatelessWidget {
   final int percent;
   final bool charging;
-  const _BatteryIcon({required this.percent, required this.charging});
+  final bool showPercent;
+  const _BatteryIcon({
+    required this.percent,
+    required this.charging,
+    this.showPercent = true,
+  });
 
-  static const double _w = 25, _h = 12.5;
-  static const double _sx = _w / 26, _sy = _h / 13;
-  static const double _innerPad = 0.6;
+  // 电池 SVG viewBox = 26 x 13，外壳与右侧小帽比例固定
+  static const double _vbW = 26, _vbH = 13;
+  static const double _innerPad = 0.8; // 使填充与描边外壳内边缘贴合
 
   @override
   Widget build(BuildContext context) {
-    final double ix = (0.8 + _innerPad) * _sx;
-    final double iy = (0.8 + _innerPad) * _sy;
-    final double iw = (21 - 2 * _innerPad) * _sx;
-    final double ih = (11.4 - 2 * _innerPad) * _sy;
     final p = percent.clamp(0, 100);
-    final Color fill = charging
-        ? WeChatTheme.brandGreen
-        : (p <= 20 ? const Color(0xFFF5343F) : WeChatTheme.statusBarIconColor);
+
+    // —— 颜色逻辑（与真机 iOS 一致）——
+    final Color fill;
+    if (p <= 20) {
+      fill = WeChatTheme.iosBatteryRed;
+    } else if (charging) {
+      fill = WeChatTheme.iosBatteryGreen;
+    } else {
+      fill = WeChatTheme.statusBarIconColor;
+    }
+    const textColor = Colors.white;
+
+    // —— 尺寸：显示百分比时略宽，整体保持 2:1 比例 ——
+    final double w = showPercent ? 25.5 : 25.0;
+    final double h = w * _vbH / _vbW;
+    final double sx = w / _vbW;
+    if (showPercent) {
+      // 电池主体内部区域（不含右侧小帽），数字与闪电严格数学居中于此
+      final double bodyX = w * 0.8 / _vbW;
+      final double bodyY = h * 0.8 / _vbH;
+      final double bodyW = w * 21 / _vbW;
+      final double bodyH = h * 11.4 / _vbH;
+      final double numFont = bodyH * 0.82;
+
+      return SizedBox(
+        width: w,
+        height: h,
+        child: Stack(
+          children: [
+            SvgPicture.asset(
+              'assets/icons/status_bar/battery_full.svg',
+              width: w,
+              height: h,
+              colorFilter: ColorFilter.mode(fill, BlendMode.srcIn),
+            ),
+            Positioned.fill(
+              child: CustomPaint(
+                painter: _BatteryLabelPainter(
+                  percent: p,
+                  charging: charging,
+                  color: textColor,
+                  fontSize: numFont,
+                  bodyRect: Rect.fromLTWH(bodyX, bodyY, bodyW, bodyH),
+                  fontFamily: WeChatTheme.fontFamily,
+                  fontFallback: WeChatTheme.fontFallback,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // 不显示百分比：描边外壳 + 内部填充条
+    final double ix = (0.8 + _innerPad) * sx;
+    final double iy = (0.8 + _innerPad) * (h / _vbH);
+    final double iw = (21 - 2 * _innerPad) * sx;
+    final double ih = (11.4 - 2 * _innerPad) * (h / _vbH);
+
     return SizedBox(
-      width: _w,
-      height: _h,
+      width: w,
+      height: h,
       child: Stack(
+        alignment: Alignment.center,
         children: [
           SvgPicture.asset(
             'assets/icons/status_bar/battery_shell.svg',
-            width: _w,
-            height: _h,
+            width: w,
+            height: h,
             colorFilter: ColorFilter.mode(
                 WeChatTheme.statusBarIconColor, BlendMode.srcIn),
           ),
@@ -214,24 +280,109 @@ class _BatteryIcon extends StatelessWidget {
             child: Container(
               decoration: BoxDecoration(
                 color: fill,
-                borderRadius: BorderRadius.circular(2),
+                borderRadius: BorderRadius.circular(2 * sx),
               ),
             ),
           ),
           if (charging)
-            Center(
-              child: SvgPicture.asset(
-                'assets/icons/status_bar/battery_bolt.svg',
-                width: _h * 0.62 * 24 / 13,
-                height: _h * 0.62,
-                colorFilter:
-                    const ColorFilter.mode(Colors.white, BlendMode.srcIn),
-              ),
+            SvgPicture.asset(
+              'assets/icons/status_bar/battery_bolt.svg',
+              width: h * 0.62 * 6.6 / 8.0,
+              height: h * 0.62,
+              colorFilter:
+                  const ColorFilter.mode(Colors.white, BlendMode.srcIn),
             ),
         ],
       ),
     );
   }
+}
+
+/// 电池内文字 + 闪电：用 TextPainter 精确测量并按几何中心绘制，
+/// 闪电用 Path 直接绘制，大小/位置均由几何算出——彻底去掉 FittedBox/Row 带来的目测偏差。
+class _BatteryLabelPainter extends CustomPainter {
+  final int percent;
+  final bool charging;
+  final Color color;
+  final double fontSize;
+  final Rect bodyRect;
+  final String? fontFamily;
+  final List<String>? fontFallback;
+  const _BatteryLabelPainter({
+    required this.percent,
+    required this.charging,
+    required this.color,
+    required this.fontSize,
+    required this.bodyRect,
+    this.fontFamily,
+    this.fontFallback,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final double cx = bodyRect.left + bodyRect.width / 2;
+    final double cy = bodyRect.top + bodyRect.height / 2;
+
+    final tp = TextPainter(
+      text: TextSpan(
+        text: '$percent',
+        style: TextStyle(
+          fontFamily: fontFamily,
+          fontFamilyFallback: fontFallback,
+          fontWeight: FontWeight.w700,
+          fontSize: fontSize,
+          height: 1.0,
+          color: color,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+      textAlign: TextAlign.center,
+    )..layout();
+
+    final double numW = tp.width;
+    final double numH = tp.height;
+
+    // 闪电：高度取数字约 72%，宽度按自然比例；位置与大小均由几何计算，无需目测微调
+    final double boltH = fontSize * 0.72;
+    final double boltW = boltH * 0.62;
+    final double gap = boltW * 0.28;
+
+    double numLeft;
+    if (charging) {
+      final double totalW = boltW + gap + numW;
+      final double startX = cx - totalW / 2;
+      _drawBolt(
+          canvas, Rect.fromLTWH(startX, cy - boltH / 2, boltW, boltH), color);
+      numLeft = startX + boltW + gap;
+    } else {
+      numLeft = cx - numW / 2;
+    }
+
+    // 数字竖直方向：以行盒几何中心对齐，并下移一个小的经验补偿使字形视觉居中
+    final double numTop = cy - numH / 2 + fontSize * 0.05;
+    tp.paint(canvas, Offset(numLeft, numTop));
+  }
+
+  void _drawBolt(Canvas canvas, Rect r, Color color) {
+    final double w = r.width, h = r.height, l = r.left, t = r.top;
+    final path = Path();
+    path.moveTo(l + 0.55 * w, t + 0.00 * h);
+    path.lineTo(l + 0.10 * w, t + 0.58 * h);
+    path.lineTo(l + 0.42 * w, t + 0.58 * h);
+    path.lineTo(l + 0.28 * w, t + 1.00 * h);
+    path.lineTo(l + 0.90 * w, t + 0.38 * h);
+    path.lineTo(l + 0.55 * w, t + 0.38 * h);
+    path.close();
+    canvas.drawPath(path, Paint()..color = color);
+  }
+
+  @override
+  bool shouldRepaint(covariant _BatteryLabelPainter old) =>
+      old.percent != percent ||
+      old.charging != charging ||
+      old.color != color ||
+      old.fontSize != fontSize ||
+      old.bodyRect != bodyRect;
 }
 
 /// 顶部导航栏：返回 / 标题(+群成员数) / 静音 / 更多
@@ -840,6 +991,7 @@ class _ChatPreviewState extends State<ChatPreview> {
             charging: widget.model.isCharging,
             signalLevel: widget.model.signalLevel,
             showWifi: widget.model.showWifi,
+            showBatteryPercent: widget.model.showBatteryPercent,
           ),
           ChatAppBar(
             title: widget.model.title,
