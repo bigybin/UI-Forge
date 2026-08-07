@@ -129,7 +129,7 @@ class StatusBar extends StatelessWidget {
               _SignalIcon(level: signalLevel),
               SizedBox(width: WeChatTheme.statusBarIconGap),
               if (showWifi) ...[
-                const _WifiIcon(),
+                _WifiIcon(),
                 SizedBox(width: WeChatTheme.statusBarIconGap),
               ],
               _BatteryIcon(percent: batteryPercent, charging: charging),
