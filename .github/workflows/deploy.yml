@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  deployments: write
 
 # 同一次只跑一个部署，新 push 会取消旧的运行
 concurrency:
