@@ -46,6 +46,7 @@ class WeChatTheme {
   static const Color iosBatteryGreen = Color(0xFF34C759); // 充电 / 满电绿
   static const Color iosBatteryRed = Color(0xFFFF3B30); // 低电量红（≤20%）
   static const Color iosBatteryYellow = Color(0xFFFFCC00); // 低电量模式黄
+  static const Color iosBatteryGray = Color(0xFFD0D3D7); // 电池灰色背景蒙版
 
   // —— 图标颜色（按区域拆分，便于单独改色）——
   static const Color statusBarIconColor = iconColor; // 状态栏图标
