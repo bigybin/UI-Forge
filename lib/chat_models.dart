@@ -43,13 +43,27 @@ class Member {
   });
 }
 
+/// 系统提示消息的一个拼接片段：文本 + 是否高亮（双色拼接）
+class SystemSegment {
+  String id;
+  String text;
+  bool highlight; // true=高亮色，false=默认色
+
+  SystemSegment({
+    required this.id,
+    this.text = '',
+    this.highlight = false,
+  });
+}
+
 /// 一条消息
 /// type: text / image / system / divider
 class ChatMessage {
   String id;
   String type;
   String? senderId; // text/image 时有效
-  String content; // 文本 / 图片 data URL / 系统提示文字
+  String content; // 文本 / 图片 data URL（system 时很少用，见 segments）
+  List<SystemSegment> segments; // system 类型时：双色拼接的片段列表
   DateTime time;
   bool showDateDivider; // 在该消息前插入大时间分割线
   String? dateDividerText; // 分割线文字覆盖（为空则自动生成）
@@ -59,6 +73,7 @@ class ChatMessage {
     this.type = 'text',
     this.senderId,
     this.content = '',
+    this.segments = const [],
     required this.time,
     this.showDateDivider = false,
     this.dateDividerText,
@@ -114,7 +129,17 @@ ChatModel sampleModel() {
     ChatMessage(id: 'msg0', type: 'divider', time: t1, showDateDivider: true, dateDividerText: '上午 9:30'),
     ChatMessage(id: 'msg1', type: 'text', senderId: 'm1', content: '在吗？周末一起去看前端展会吗', time: t1),
     ChatMessage(id: 'msg2', type: 'text', senderId: 'm2', content: '我也想去！听说这次有很多前端新技术分享', time: t2),
-    ChatMessage(id: 'msg3', type: 'system', content: '李四 邀请 王五 加入了群聊', time: t2),
+    ChatMessage(
+        id: 'msg3',
+        type: 'system',
+        segments: [
+          SystemSegment(id: 's1', text: '"', highlight: false), // 默认色
+          SystemSegment(id: 's2', text: '张三', highlight: true),
+          SystemSegment(id: 's3', text: '"邀请"', highlight: false), // 默认色
+          SystemSegment(id: 's4', text: '李四', highlight: true),
+          SystemSegment(id: 's5', text: '"加入群聊', highlight: false), // 默认色
+        ],
+        time: t2),
     ChatMessage(id: 'msg4', type: 'image', senderId: 'm2', content: '', time: t3),
     ChatMessage(id: 'msg5', type: 'text', senderId: 'm3', content: '好啊，那我们周六上午十点地铁口集合', time: t3),
     ChatMessage(id: 'msg6', type: 'text', senderId: 'm1', content: '收到～记得带上相机', time: t4),

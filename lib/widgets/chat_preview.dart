@@ -699,10 +699,10 @@ class MessageRow extends StatelessWidget {
   }
 }
 
-/// 系统提示（浅灰胶囊）
+/// 系统提示：无背景，多片段双色拼接成一行（默认色 + 高亮色）
 class SystemMessage extends StatelessWidget {
-  final String text;
-  const SystemMessage({required this.text, super.key});
+  final List<SystemSegment> segments;
+  const SystemMessage({required this.segments, super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -711,19 +711,20 @@ class SystemMessage extends StatelessWidget {
           vertical: WeChatTheme.systemMarginV,
           horizontal: WeChatTheme.systemMarginH),
       child: Center(
-        child: Container(
-          padding: EdgeInsets.symmetric(
-              horizontal: WeChatTheme.systemPaddingH,
-              vertical: WeChatTheme.systemPaddingV),
-          decoration: BoxDecoration(
-            color: WeChatTheme.systemBubbleBg,
-            borderRadius: BorderRadius.circular(WeChatTheme.systemRadius),
-          ),
-          child: Text(
-            text,
+        child: Text.rich(
+          TextSpan(
             style: WeChatTheme.systemStyle,
-            textAlign: TextAlign.center,
+            children: [
+              for (final seg in segments)
+                TextSpan(
+                  text: seg.text,
+                  style: seg.highlight
+                      ? const TextStyle(color: WeChatTheme.systemHighlightColor)
+                      : null,
+                ),
+            ],
           ),
+          textAlign: TextAlign.center,
         ),
       ),
     );
@@ -967,7 +968,10 @@ class _ChatPreviewState extends State<ChatPreview> {
             text: msg.dateDividerText ?? formatDateDivider(msg.time)));
       }
       if (msg.type == 'system') {
-        children.add(SystemMessage(text: msg.content));
+        final segs = msg.segments.isNotEmpty
+            ? msg.segments
+            : [SystemSegment(id: msg.id, text: msg.content)];
+        children.add(SystemMessage(segments: segs));
         continue;
       }
       final sender =

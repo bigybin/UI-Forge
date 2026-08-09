@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../chat_models.dart';
 import '../wechat_theme.dart';
 import '../utils.dart';
@@ -49,6 +50,18 @@ class _EditorPanelState extends State<EditorPanel> {
 
   void _removeMember(Member m) {
     widget.model.members.removeWhere((x) => x.id == m.id);
+    // 同步删除该成员的全部消息，避免遗留 senderId 无效消息导致 Dropdown 断言崩溃 / 预览残留
+    final removed = widget.model.messages
+        .where((msg) => msg.senderId == m.id)
+        .toList();
+    widget.model.messages.removeWhere((msg) => msg.senderId == m.id);
+    for (final msg in removed) {
+      _tc.remove('msg_content_${msg.id}');
+      _tc.remove('msg_div_${msg.id}');
+      for (final seg in msg.segments) {
+        _tc.remove('sys_${msg.id}_${seg.id}');
+      }
+    }
     _tc.remove('m_name_${m.id}');
     widget.onChanged();
   }
@@ -76,7 +89,10 @@ class _EditorPanelState extends State<EditorPanel> {
       id: shortId(),
       type: type,
       senderId: type == 'system' || type == 'divider' ? null : firstId,
-      content: type == 'system' ? '系统提示内容' : '',
+      content: '',
+      segments: type == 'system'
+          ? [SystemSegment(id: shortId(), text: '系统提示')]
+          : const [],
       time: DateTime.now(),
     ));
     widget.onChanged();
@@ -86,6 +102,32 @@ class _EditorPanelState extends State<EditorPanel> {
     widget.model.messages.removeWhere((x) => x.id == m.id);
     _tc.remove('msg_content_${m.id}');
     _tc.remove('msg_div_${m.id}');
+    for (final seg in m.segments) {
+      _tc.remove('sys_${m.id}_${seg.id}');
+    }
+    widget.onChanged();
+  }
+
+  void _addSystemSegment(ChatMessage m) {
+    m.segments.add(SystemSegment(id: shortId()));
+    widget.onChanged();
+  }
+
+  void _removeSystemSegment(ChatMessage m, SystemSegment seg) {
+    if (m.segments.length <= 1) return; // 至少保留一条
+    m.segments.remove(seg);
+    _tc.remove('sys_${m.id}_${seg.id}');
+    widget.onChanged();
+  }
+
+  /// 上移(delta=-1) / 下移(delta=+1) 消息位置，越界不做任何事
+  void _moveMessage(ChatMessage m, int delta) {
+    final i = widget.model.messages.indexOf(m);
+    final j = i + delta;
+    if (i < 0 || j < 0 || j >= widget.model.messages.length) return;
+    widget.model.messages
+      ..removeAt(i)
+      ..insert(j, m);
     widget.onChanged();
   }
 
@@ -118,6 +160,54 @@ class _EditorPanelState extends State<EditorPanel> {
   }
 
   // —— UI 小部件 ——
+  /// 当前状态栏时间的「时 / 分」段（无 time 或格式异常时留空）
+  String get _timeHour {
+    final parts = (widget.model.statusBarTime ?? '').split(':');
+    return (parts.length == 2 && parts[0].isNotEmpty) ? parts[0] : '';
+  }
+
+  String get _timeMinute {
+    final parts = (widget.model.statusBarTime ?? '').split(':');
+    return (parts.length == 2 && parts[1].isNotEmpty) ? parts[1] : '';
+  }
+
+  static const TextStyle _timeInputStyle = TextStyle(
+    fontSize: 13,
+    fontWeight: FontWeight.w600,
+    color: Colors.black87,
+  );
+
+  static InputDecoration _timeInputDecoration(String hint) => InputDecoration(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+        border: const OutlineInputBorder(),
+        hintStyle: const TextStyle(fontSize: 13, color: Colors.black26),
+        hintText: hint,
+        isDense: true,
+      );
+
+  /// 读两个数字段合成 "h:mm"；任一段为空/非法时回退实时时钟
+  void _applyStatusTime() {
+    final h = int.tryParse(_ctrl('status_time_h', '').text.trim());
+    final m = int.tryParse(_ctrl('status_time_m', '').text.trim());
+    if (h == null || m == null) {
+      widget.model.statusBarTime = null;
+    } else {
+      widget.model.statusBarTime =
+          '${h.clamp(0, 23)}:${m.clamp(0, 59).toString().padLeft(2, '0')}';
+    }
+    widget.onChanged();
+  }
+
+  void _setCurrentTime() {
+    final now = DateTime.now();
+    final h = now.hour.toString();
+    final m = now.minute.toString().padLeft(2, '0');
+    _ctrl('status_time_h', h).text = h;
+    _ctrl('status_time_m', m).text = m;
+    widget.model.statusBarTime = '$h:$m';
+    widget.onChanged();
+  }
+
   Widget _sectionTitle(String text) => Padding(
         padding: const EdgeInsets.only(bottom: 8, top: 4),
         child: Text(text,
@@ -172,6 +262,57 @@ class _EditorPanelState extends State<EditorPanel> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // 系统时间：两段式数字输入（时 : 分），冒号无需手工输入，只接受数字
+                  Row(
+                    children: [
+                      const Text('时间', style: TextStyle(fontSize: 13)),
+                      const Spacer(),
+                      SizedBox(
+                        width: 44,
+                        height: 36,
+                        child: TextField(
+                          controller: _ctrl('status_time_h', _timeHour),
+                          textAlign: TextAlign.center,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                            LengthLimitingTextInputFormatter(2),
+                          ],
+                          style: _timeInputStyle,
+                          decoration: _timeInputDecoration('9'),
+                          onChanged: (_) => _applyStatusTime(),
+                        ),
+                      ),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 2),
+                        child: Text(':', style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.w600,
+                            color: Colors.black54)),
+                      ),
+                      SizedBox(
+                        width: 44,
+                        height: 36,
+                        child: TextField(
+                          controller: _ctrl('status_time_m', _timeMinute),
+                          textAlign: TextAlign.center,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                            LengthLimitingTextInputFormatter(2),
+                          ],
+                          style: _timeInputStyle,
+                          decoration: _timeInputDecoration('41'),
+                          onChanged: (_) => _applyStatusTime(),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      TextButton.icon(
+                        onPressed: _setCurrentTime,
+                        icon: const Icon(Icons.access_time, size: 16),
+                        label: const Text('当前', style: TextStyle(fontSize: 12)),
+                      ),
+                    ],
+                  ),
                   Row(
                     children: [
                       const Text('电池', style: TextStyle(fontSize: 13)),
@@ -388,11 +529,68 @@ class _EditorPanelState extends State<EditorPanel> {
     );
   }
 
+  /// 系统提示分段编辑器：每行 = 高亮勾选框 + 文本 + 删除（最少保留一条）
+  Widget _systemSegmentsEditor(ChatMessage m) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final seg in m.segments)
+          Row(
+            children: [
+              Checkbox(
+                value: seg.highlight,
+                onChanged: (v) {
+                  seg.highlight = v ?? false;
+                  widget.onChanged();
+                },
+              ),
+              Expanded(
+                child: TextField(
+                  controller: _ctrl('sys_${m.id}_${seg.id}', seg.text),
+                  onChanged: (v) {
+                    seg.text = v;
+                    widget.onChanged();
+                  },
+                  maxLines: 1,
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                    hintText: '片段内容',
+                  ),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
+                tooltip: '删除条目',
+                onPressed: m.segments.length > 1
+                    ? () => _removeSystemSegment(m, seg)
+                    : null,
+              ),
+            ],
+          ),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: OutlinedButton.icon(
+            onPressed: () => _addSystemSegment(m),
+            icon: const Icon(Icons.add, size: 18),
+            label: const Text('添加条目', style: TextStyle(fontSize: 12)),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _messageCard(ChatMessage m) {
     final model = widget.model;
     final isDivider = m.type == 'divider';
     final isSystem = m.type == 'system';
     final showSender = !isSystem && !isDivider;
+    final index = model.messages.indexOf(m);
+    final canMoveUp = index > 0;
+    final canMoveDown = index >= 0 && index < model.messages.length - 1;
     final typeLabel = {
       'text': '文本',
       'image': '图片',
@@ -417,8 +615,20 @@ class _EditorPanelState extends State<EditorPanel> {
                   DropdownMenuItem(value: 'divider', child: Text('时间分割')),
                 ],
                 onChanged: (v) {
+                  final wasSystem = m.type == 'system';
                   m.type = v!;
                   if (v == 'system' || v == 'divider') m.senderId = null;
+                  if (v == 'system' && m.segments.isEmpty) {
+                    m.segments = [
+                      SystemSegment(
+                        id: shortId(),
+                        text: m.content.trim().isEmpty ? '系统提示' : m.content,
+                      ),
+                    ];
+                  }
+                  if (wasSystem && v != 'system') {
+                    m.content = m.segments.map((s) => s.text).join('');
+                  }
                   if ((v == 'text' || v == 'image' || v == 'sticker') &&
                       (m.senderId == null || !model.members.any((mm) => mm.id == m.senderId))) {
                     m.senderId = model.members.isNotEmpty ? model.members.first.id : null;
@@ -445,13 +655,31 @@ class _EditorPanelState extends State<EditorPanel> {
                     },
                   ),
                 ),
+              if (canMoveUp)
+                IconButton(
+                  icon: const Icon(Icons.keyboard_arrow_up,
+                      size: 18, color: Colors.black54),
+                  visualDensity: VisualDensity.compact,
+                  tooltip: '上移',
+                  onPressed: () => _moveMessage(m, -1),
+                ),
+              if (canMoveDown)
+                IconButton(
+                  icon: const Icon(Icons.keyboard_arrow_down,
+                      size: 18, color: Colors.black54),
+                  visualDensity: VisualDensity.compact,
+                  tooltip: '下移',
+                  onPressed: () => _moveMessage(m, 1),
+                ),
               IconButton(
                 icon: const Icon(Icons.delete_outline, color: Colors.red),
                 onPressed: () => _removeMessage(m),
               ),
             ],
           ),
-          if (!isDivider)
+          if (m.type == 'system')
+            _systemSegmentsEditor(m)
+          else if (!isDivider)
             TextField(
               controller: _ctrl('msg_content_${m.id}', m.content),
               onChanged: (v) {
@@ -462,11 +690,9 @@ class _EditorPanelState extends State<EditorPanel> {
               decoration: InputDecoration(
                 border: const OutlineInputBorder(),
                 isDense: true,
-                hintText: isSystem
-                    ? '系统提示文字'
-                    : (m.type == 'image'
-                        ? '（用下方按钮上传图片）'
-                        : (m.type == 'sticker' ? '（用下方按钮上传表情）' : '消息内容')),
+                hintText: m.type == 'image'
+                    ? '（用下方按钮上传图片）'
+                    : (m.type == 'sticker' ? '（用下方按钮上传表情）' : '消息内容'),
               ),
             ),
           if (m.type == 'image' || m.type == 'sticker') ...[

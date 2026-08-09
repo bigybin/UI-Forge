@@ -34,10 +34,11 @@ class WeChatTheme {
   static const Color textSent = Color(0xE6000000); // 已方文字（近黑，i_）
   static const Color titleColor = Color(0xE6000000); // 主标题 bx
   static const Color subTitleColor = Color(0x8C000000); // 第二行成员数 jj
-  static const Color nicknameColor = Color(0xFF576B95); // 群昵称 Link_100（蓝紫）
+  static const Color nicknameColor = Color(0xFF8A8A8A); // 群昵称 Link_100（蓝紫）
   static const Color timeSmallColor = Color(0x8C000000); // 单条时间戳 FG_3
   static const Color timeDividerColor = Color(0x4D000000); // 大时间分割线 FG_2
-  static const Color systemTextColor = Color(0x4D000000); // 系统提示文字 FG_2
+  static const Color systemTextColor = Color(0x4D000000); // 系统提示文字 FG_2（默认色）
+  static const Color systemHighlightColor = Color(0xFF67689A); // 系统提示高亮段拼接色
   static const Color navDividerColor = Color(0xFFE5E5E5); // 导航栏底部 hairline
   static const Color iconColor = Color(0xE6000000); // 图标近黑（通用默认）
   static const Color hintColor = Color(0x4D000000); // 输入框提示灰
@@ -74,8 +75,19 @@ class WeChatTheme {
   ];
 
   // ══════════════════ 三、字体 ══════════════════
-  static const String fontFamily = 'PingFang SC';
+  /// 状态栏时间（MiSans-Semibold-time：数字 + 冒号 子集）
+  static const String fontStatusTime = 'MiSans-Semibold-time';
+  /// 时间分割线（MiSans-Normal-time：数字 + 冒号 + 上午/下午/凌晨/晚上/早上/昨天/中午/年月日 子集）
+  static const String fontTimeDivider = 'MiSans-Normal-time';
+  /// 标题（MiSans-Demibold：完整字体）
+  static const String fontTitle = 'MiSans-Demibold';
+  /// 消息正文与其余场景（MiSans-Regular：完整字体，全局默认兜底）
+  static const String fontBody = 'MiSans-Regular';
+
+  /// 全局默认字体 = 正文字体（无特殊声明处一律使用）
+  static const String fontFamily = fontBody;
   static const List<String> fontFallback = [
+    'PingFang SC',
     'Microsoft YaHei',
     'Roboto',
     'sans-serif'
@@ -89,15 +101,17 @@ class WeChatTheme {
   );
 
   /// 状态栏时间（iOS 状态栏特有，15sp / Medium）
-  static final TextStyle statusBarTimeStyle =
-      _base.copyWith(fontSize: 15, fontWeight: FontWeight.w500, color: iconColor);
+  static final TextStyle statusBarTimeStyle = _base.copyWith(
+      fontSize: 15, fontWeight: FontWeight.w500, color: iconColor,
+      fontFamily: fontStatusTime);
 
-  /// 主标题 bx，17sp
-  static final TextStyle titleStyle = _base.copyWith(fontSize: 17, color: titleColor);
+  /// 主标题 bx，17sp / Medium
+  static final TextStyle titleStyle =
+      _base.copyWith(fontSize: 17, color: titleColor, fontFamily: fontTitle);
 
-  /// 副标题（群成员数，第二行）jj，14sp
-  static final TextStyle subtitleStyle =
-      _base.copyWith(fontSize: 14, color: subTitleColor);
+  /// 副标题（群成员数，第二行）jj，14sp / Medium
+  static final TextStyle subtitleStyle = _base.copyWith(
+      fontSize: 14, color: subTitleColor, fontFamily: fontTitle);
 
   /// 接收消息正文，17sp
   static final TextStyle bodyStyle = _base.copyWith(fontSize: 15, color: textPrimary);
@@ -109,9 +123,9 @@ class WeChatTheme {
   static final TextStyle nicknameStyle =
       _base.copyWith(fontSize: 12, color: nicknameColor);
 
-  /// 大时间分割线文字 FG_2，14sp
+  /// 大时间分割线文字 FG_2，10sp / Normal-time 子集
   static final TextStyle timeDividerStyle =
-      _base.copyWith(fontSize: 14, color: timeDividerColor);
+      _base.copyWith(fontSize: 12, color: timeDividerColor, fontFamily: fontTimeDivider);
 
   /// 系统提示文字 FG_2，14sp
   static final TextStyle systemStyle =

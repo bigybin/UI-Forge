@@ -68,6 +68,25 @@ flutter:
     - assets/icons/
     - assets/icons/status_bar/
 
+  # 右侧手机页面专用字体（woff2 子集/完整字体）
+  # - Semibold-time：状态栏时间（数字 + 冒号）
+  # - Normal-time：时间分割线（数字 + 冒号 + 上午/下午/凌晨/晚上/早上/昨天/中午/年月日）
+  # - Demibold：标题（完整字体）
+  # - Regular：消息正文及其余场景（完整字体，默认兜底）
+  fonts:
+    - family: MiSans-Semibold-time
+      fonts:
+        - asset: assets/fonts/MiSans-Semibold-time.woff2
+    - family: MiSans-Normal-time
+      fonts:
+        - asset: assets/fonts/MiSans-Normal-time.woff2
+    - family: MiSans-Demibold
+      fonts:
+        - asset: assets/fonts/MiSans-Demibold.woff2
+    - family: MiSans-Regular
+      fonts:
+        - asset: assets/fonts/MiSans-Regular.woff2
+
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
 
