@@ -19,7 +19,7 @@ class WeChatTheme {
   static const double chatHeight = 812.0; // iPhone X 全屏逻辑高，整体保持手机比例
   static const double statusBarHeight = 44.0;
   static const double appBarHeight = 44.0;
-  static const double homeIndicatorHeight = 34.0;
+  static const double homeIndicatorHeight = 14.0;
 
   // ══════════════════ 二、颜色 ══════════════════
   // —— 背景 ——
@@ -52,7 +52,7 @@ class WeChatTheme {
   // —— 图标颜色（按区域拆分，便于单独改色）——
   static const Color statusBarIconColor = iconColor; // 状态栏图标
   static const Color appBarIconColor = iconColor; // 导航栏图标
-  static const Color inputBarIconColor = iconColor; // 输入栏图标（语音/麦克风/表情/加号）
+  static const Color inputBarIconColor = Color(0xFF5E5D5D); // 输入栏图标（语音/麦克风/表情/加号）
   static const Color avatarInitialColor = Color(0xFFFFFFFF); // 头像首字（白）
   static const Color placeholderTextColor = Color(0x99000000); // 缺图占位文字
 
@@ -225,7 +225,7 @@ class WeChatTheme {
   static const double inputBarPaddingV = 7.0; // 输入栏上下内边距
   static const double inputBarIconSize = 26.0; // 通用图标尺寸（备用）
   static const double inputBarVoiceIconSize = 32.0; // 左侧语音切换键（圆圈声波）
-  static const double inputBarMicIconSize = 22.0; // 输入框右侧麦克风
+  static const double inputBarMicIconSize = 18.0; // 输入框右侧麦克风
   static const double inputBarEmojiIconSize = 30.0; // 表情键
   static const double inputBarPlusIconSize = 30.0; // 加号键
   static const double inputBarIconGap = 4.0; // 右侧图标之间的间隙

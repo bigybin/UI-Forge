@@ -782,6 +782,7 @@ class InputBar extends StatelessWidget {
             constraints: const BoxConstraints(),
             splashRadius: 20,
           ),
+          Container(width: 8,),
           // 中间：输入框（麦克风置于输入框内部右侧）
           Expanded(
             child: Container(
