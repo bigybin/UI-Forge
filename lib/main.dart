@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
+import 'package:web/web.dart' as web;
 import 'chat_models.dart';
 import 'wechat_theme.dart';
 import 'utils.dart';
@@ -7,7 +10,18 @@ import 'screenshot_helper.dart';
 import 'widgets/chat_preview.dart';
 import 'widgets/editor_panel.dart';
 
-void main() => runApp(const MyApp());
+void main() {
+  runApp(const MyApp());
+  WidgetsBinding.instance.addPostFrameCallback((_) => _hideAppLoader());
+}
+
+/// Flutter 首帧渲染完成后，淡出并移除 index.html 中的加载动画
+void _hideAppLoader() {
+  final loader = web.document.getElementById('app-loader');
+  if (loader == null) return;
+  loader.className = 'fade-out';
+  Future<void>.delayed(const Duration(milliseconds: 300), () => loader.remove());
+}
 
 /// 允许鼠标 / 触摸 / 触控笔拖拽滚动，模拟原版可直接拖动滑动的手感
 class MyScrollBehavior extends MaterialScrollBehavior {

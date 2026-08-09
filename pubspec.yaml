@@ -38,6 +38,9 @@ dependencies:
   # SVG 图标渲染（微信真实图标资源）
   flutter_svg: ^2.0.17
 
+  # 类型安全的浏览器 DOM 互操作（用于加载动画移除）
+  web: ^1.1.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
