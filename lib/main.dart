@@ -64,6 +64,10 @@ class _HomePageState extends State<HomePage> {
   late TextEditingController inputController;
   final GlobalKey previewKey = GlobalKey();
 
+  /// 版本号通知器：EditorPanel 数据变化时递增，触发 ChatPreview 重建。
+  /// 使用 ValueNotifier 而非直接 setState，避免左侧输入时重建整个左侧面板。
+  final ValueNotifier<int> _versionNotifier = ValueNotifier(0);
+
   @override
   void initState() {
     super.initState();
@@ -74,26 +78,28 @@ class _HomePageState extends State<HomePage> {
   @override
   void dispose() {
     inputController.dispose();
+    _versionNotifier.dispose();
     super.dispose();
   }
 
-  void _onInputChanged(String v) => setState(() {});
+  /// 输入框内容变化 — 不再触发全树重建，TextField 自身管理输入状态。
+  /// 右侧预览区只在实际数据变化时通过 _versionNotifier 重建。
+  void _onInputChanged(String v) {}
 
   void _onSend() {
     final text = inputController.text.trim();
     if (text.isEmpty) return;
     final me = model.members.firstWhere((m) => m.isMe,
         orElse: () => model.members.first);
-    setState(() {
-      model.messages.add(ChatMessage(
-        id: shortId(),
-        type: 'text',
-        senderId: me.id,
-        content: text,
-        time: DateTime.now(),
-      ));
-      inputController.clear();
-    });
+    model.messages.add(ChatMessage(
+      id: shortId(),
+      type: 'text',
+      senderId: me.id,
+      content: text,
+      time: DateTime.now(),
+    ));
+    inputController.clear();
+    _versionNotifier.value++;
   }
 
   Future<void> _download() async {
@@ -115,7 +121,7 @@ class _HomePageState extends State<HomePage> {
             width: 420,
             child: EditorPanel(
               model: model,
-              onChanged: () => setState(() {}),
+              onChanged: () => _versionNotifier.value++,
               onDownload: _download,
             ),
           ),
@@ -129,15 +135,18 @@ class _HomePageState extends State<HomePage> {
                       vertical: 24, horizontal: 16),
                   child: Align(
                     alignment: Alignment.topCenter,
-                    child: PhoneFrame(
-                      child: RepaintBoundary(
-                        key: previewKey,
-                        child: ChatPreview(
-                          model: model,
-                          inputController: inputController,
-                          onInputChanged: _onInputChanged,
-                          onSend: _onSend,
-                          onBack: () {},
+                    child: ValueListenableBuilder<int>(
+                      valueListenable: _versionNotifier,
+                      builder: (context, version, child) => PhoneFrame(
+                        child: RepaintBoundary(
+                          key: previewKey,
+                          child: ChatPreview(
+                            model: model,
+                            inputController: inputController,
+                            onInputChanged: _onInputChanged,
+                            onSend: _onSend,
+                            onBack: () {},
+                          ),
                         ),
                       ),
                     ),

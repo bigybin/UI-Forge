@@ -3,6 +3,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../chat_models.dart';
 import '../wechat_theme.dart';
+import '../image_cache.dart';
 
 /// 隐藏滚动条：让聊天区滑动时不显示右侧进度条，更贴近真机观感
 /// 同时保留鼠标 / 触摸 / 触控笔拖拽（否则只响应滚轮）
@@ -486,7 +487,8 @@ class Avatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hasImg = member.avatarUrl != null && member.avatarUrl!.isNotEmpty;
+    final url = member.avatarUrl;
+    final hasImg = url != null && url.isNotEmpty;
     return Container(
       width: size,
       height: size,
@@ -495,7 +497,16 @@ class Avatar extends StatelessWidget {
         borderRadius: BorderRadius.circular(WeChatTheme.avatarRadius),
         image: hasImg
             ? DecorationImage(
-                image: NetworkImage(member.avatarUrl!), fit: BoxFit.cover)
+                // 按显示尺寸解码（2x 防锯齿），避免 256px 原图全尺寸占用内存
+                image: ResizeImage(
+                  CachedDataUrlImageProvider(url),
+                  width: (size * 2).round(),
+                ),
+                fit: BoxFit.cover,
+                onError: (exception, stackTrace) {
+                  debugPrint('Avatar: failed to load image: $exception');
+                },
+              )
             : null,
       ),
       child: hasImg
@@ -616,8 +627,8 @@ class MessageRow extends StatelessWidget {
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(WeChatTheme.bubbleRadius),
-                child: Image.network(
-                  msg.content,
+                child: CachedMemoryImage(
+                  dataUrl: msg.content,
                   fit: BoxFit.contain,
                 ),
               ),
@@ -635,7 +646,13 @@ class MessageRow extends StatelessWidget {
       // 表情消息：固定正方形、不做圆角、支持 PNG 透明通道（无背景色）
       final s = WeChatTheme.stickerSize;
       content = msg.content.isNotEmpty
-          ? Image.network(msg.content, width: s, height: s, fit: BoxFit.contain)
+          ? CachedMemoryImage(
+              dataUrl: msg.content,
+              width: s,
+              height: s,
+              fit: BoxFit.contain,
+              cacheWidth: (s * 2).round(),
+            )
           : Container(
               width: s,
               height: s,
@@ -960,29 +977,35 @@ class _ChatPreviewState extends State<ChatPreview> {
     final children = <Widget>[];
     for (final msg in widget.model.messages) {
       if (msg.type == 'divider') {
-        children.add(TimeDivider(
-            text: msg.dateDividerText ?? formatDateDivider(msg.time)));
+        children.add(RepaintBoundary(
+            child: TimeDivider(
+                text: msg.dateDividerText ?? formatDateDivider(msg.time))));
         continue;
       }
       if (msg.showDateDivider) {
-        children.add(TimeDivider(
-            text: msg.dateDividerText ?? formatDateDivider(msg.time)));
+        children.add(RepaintBoundary(
+            child: TimeDivider(
+                text: msg.dateDividerText ?? formatDateDivider(msg.time))));
       }
       if (msg.type == 'system') {
         final segs = msg.segments.isNotEmpty
             ? msg.segments
             : [SystemSegment(id: msg.id, text: msg.content)];
-        children.add(SystemMessage(segments: segs));
+        children.add(RepaintBoundary(child: SystemMessage(segments: segs)));
         continue;
       }
       final sender =
           widget.model.members.where((m) => m.id == msg.senderId).firstOrNull;
       final isMe = sender?.isMe ?? false;
-      children.add(MessageRow(
-        msg: msg,
-        sender: sender,
-        isGroup: widget.model.isGroup,
-        isMe: isMe,
+      // 每条消息独立 RepaintBoundary：滚动时各行作为已栅格化图层平移，
+      // 只有真正变化/新滚入视口的行才重绘，避免整机每帧全量重绘造成卡顿。
+      children.add(RepaintBoundary(
+        child: MessageRow(
+          msg: msg,
+          sender: sender,
+          isGroup: widget.model.isGroup,
+          isMe: isMe,
+        ),
       ));
     }
 

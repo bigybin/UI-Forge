@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../chat_models.dart';
 import '../wechat_theme.dart';
 import '../utils.dart';
+import '../image_cache.dart';
 import '../widgets/chat_preview.dart';
 
 /// 左侧编辑器面板：自定义聊天内容，并触发截图下载
@@ -38,6 +39,14 @@ class _EditorPanelState extends State<EditorPanel> {
     super.dispose();
   }
 
+  /// 数据变更：本地重建左侧面板 + 通知右侧预览刷新。
+  /// 仅用于按钮/开关/勾选/上传等离散操作；文本输入走 widget.onChanged()，
+  /// 避免输入时重建整个左侧面板导致光标抖动。
+  void _notify() {
+    setState(() {});
+    widget.onChanged();
+  }
+
   // —— 各类操作 ——
   void _addMember() {
     widget.model.members.add(Member(
@@ -45,7 +54,7 @@ class _EditorPanelState extends State<EditorPanel> {
       name: '新成员',
       color: randomAvatarColor(),
     ));
-    widget.onChanged();
+    _notify();
   }
 
   void _removeMember(Member m) {
@@ -63,21 +72,22 @@ class _EditorPanelState extends State<EditorPanel> {
       }
     }
     _tc.remove('m_name_${m.id}');
-    widget.onChanged();
+    _notify();
   }
 
   void _setMe(Member m) {
     for (final x in widget.model.members) {
       x.isMe = (x.id == m.id);
     }
-    widget.onChanged();
+    _notify();
   }
 
   Future<void> _uploadAvatar(Member m) async {
-    final url = await pickImageAsDataUrl();
+    final url = await pickImageAsDataUrl(isAvatar: true);
+    if (!mounted) return;
     if (url != null) {
       m.avatarUrl = url;
-      widget.onChanged();
+      _notify();
     }
   }
 
@@ -95,7 +105,7 @@ class _EditorPanelState extends State<EditorPanel> {
           : const [],
       time: DateTime.now(),
     ));
-    widget.onChanged();
+    _notify();
   }
 
   void _removeMessage(ChatMessage m) {
@@ -105,19 +115,19 @@ class _EditorPanelState extends State<EditorPanel> {
     for (final seg in m.segments) {
       _tc.remove('sys_${m.id}_${seg.id}');
     }
-    widget.onChanged();
+    _notify();
   }
 
   void _addSystemSegment(ChatMessage m) {
     m.segments.add(SystemSegment(id: shortId()));
-    widget.onChanged();
+    _notify();
   }
 
   void _removeSystemSegment(ChatMessage m, SystemSegment seg) {
     if (m.segments.length <= 1) return; // 至少保留一条
     m.segments.remove(seg);
     _tc.remove('sys_${m.id}_${seg.id}');
-    widget.onChanged();
+    _notify();
   }
 
   /// 上移(delta=-1) / 下移(delta=+1) 消息位置，越界不做任何事
@@ -128,7 +138,7 @@ class _EditorPanelState extends State<EditorPanel> {
     widget.model.messages
       ..removeAt(i)
       ..insert(j, m);
-    widget.onChanged();
+    _notify();
   }
 
   void _loadGroup() {
@@ -142,7 +152,7 @@ class _EditorPanelState extends State<EditorPanel> {
       ..messages.clear()
       ..messages.addAll(s.messages);
     _tc.clear();
-    widget.onChanged();
+    _notify();
   }
 
   void _loadSingle() {
@@ -156,7 +166,7 @@ class _EditorPanelState extends State<EditorPanel> {
       ..messages.clear()
       ..messages.addAll(s.messages);
     _tc.clear();
-    widget.onChanged();
+    _notify();
   }
 
   // —— UI 小部件 ——
@@ -205,7 +215,7 @@ class _EditorPanelState extends State<EditorPanel> {
     _ctrl('status_time_h', h).text = h;
     _ctrl('status_time_m', m).text = m;
     widget.model.statusBarTime = '$h:$m';
-    widget.onChanged();
+    _notify();
   }
 
   Widget _sectionTitle(String text) => Padding(
@@ -328,7 +338,7 @@ class _EditorPanelState extends State<EditorPanel> {
                     divisions: 100,
                     onChanged: (v) {
                       model.batteryPercent = v.round();
-                      widget.onChanged();
+                      _notify();
                     },
                   ),
                   Row(
@@ -339,7 +349,7 @@ class _EditorPanelState extends State<EditorPanel> {
                         value: model.isCharging,
                         onChanged: (v) {
                           model.isCharging = v;
-                          widget.onChanged();
+                          _notify();
                         },
                       ),
                     ],
@@ -359,7 +369,7 @@ class _EditorPanelState extends State<EditorPanel> {
                         onChanged: (v) {
                           if (v != null) {
                             model.signalLevel = v;
-                            widget.onChanged();
+                            _notify();
                           }
                         },
                       ),
@@ -373,7 +383,7 @@ class _EditorPanelState extends State<EditorPanel> {
                         value: model.showWifi,
                         onChanged: (v) {
                           model.showWifi = v;
-                          widget.onChanged();
+                          _notify();
                         },
                       ),
                     ],
@@ -386,7 +396,7 @@ class _EditorPanelState extends State<EditorPanel> {
                         value: model.showBatteryPercent,
                         onChanged: (v) {
                           model.showBatteryPercent = v;
-                          widget.onChanged();
+                          _notify();
                         },
                       ),
                     ],
@@ -402,7 +412,7 @@ class _EditorPanelState extends State<EditorPanel> {
                 isSelected: [!model.isGroup, model.isGroup],
                 onPressed: (i) {
                   model.isGroup = (i == 1);
-                  widget.onChanged();
+                  _notify();
                 },
                 children: const [
                   Padding(padding: EdgeInsets.symmetric(horizontal: 18), child: Text('单聊')),
@@ -435,7 +445,7 @@ class _EditorPanelState extends State<EditorPanel> {
                           value: model.showMemberCount,
                           onChanged: (v) {
                             model.showMemberCount = v ?? true;
-                            widget.onChanged();
+                            _notify();
                           },
                         ),
                         const Text('标题后显示成员数 (N)'),
@@ -446,7 +456,13 @@ class _EditorPanelState extends State<EditorPanel> {
             ),
 
             _sectionTitle('成员（接收人 / 发送人）'),
-            ...model.members.map((m) => _memberCard(m)),
+            // 每张成员卡独立 RepaintBoundary：滚动时各卡作为已栅格化图层平移，
+            // 只有真正变化/新滚入视口的卡才重绘，避免整面板每帧全量重绘卡顿。
+            ...model.members.map(
+                (m) => RepaintBoundary(
+                  key: ValueKey('member_card_${m.id}'),
+                  child: _memberCard(m),
+                )),
             OutlinedButton.icon(
               onPressed: _addMember,
               icon: const Icon(Icons.add),
@@ -455,7 +471,13 @@ class _EditorPanelState extends State<EditorPanel> {
 
             const SizedBox(height: 16),
             _sectionTitle('消息'),
-            ...model.messages.map((m) => _messageCard(m)),
+            // 每张消息卡独立 RepaintBoundary：滚动时各卡作为已栅格化图层平移，
+            // 含图片/表情缩略图的卡只栅格化一次，不再逐帧重绘。
+            ...model.messages.map(
+                (m) => RepaintBoundary(
+                  key: ValueKey('msg_card_${m.id}'),
+                  child: _messageCard(m),
+                )),
             Wrap(
               spacing: 8,
               runSpacing: 8,
@@ -541,7 +563,7 @@ class _EditorPanelState extends State<EditorPanel> {
                 value: seg.highlight,
                 onChanged: (v) {
                   seg.highlight = v ?? false;
-                  widget.onChanged();
+                  _notify();
                 },
               ),
               Expanded(
@@ -633,7 +655,7 @@ class _EditorPanelState extends State<EditorPanel> {
                       (m.senderId == null || !model.members.any((mm) => mm.id == m.senderId))) {
                     m.senderId = model.members.isNotEmpty ? model.members.first.id : null;
                   }
-                  widget.onChanged();
+                  _notify();
                 },
               ),
               const SizedBox(width: 8),
@@ -651,7 +673,7 @@ class _EditorPanelState extends State<EditorPanel> {
                         .toList(),
                     onChanged: (v) {
                       m.senderId = v;
-                      widget.onChanged();
+                      _notify();
                     },
                   ),
                 ),
@@ -700,9 +722,10 @@ class _EditorPanelState extends State<EditorPanel> {
             ElevatedButton.icon(
               onPressed: () async {
                 final url = await pickImageAsDataUrl();
+                if (!mounted) return;
                 if (url != null) {
                   m.content = url;
-                  widget.onChanged();
+                  _notify();
                 }
               },
               icon: const Icon(Icons.upload, size: 16),
@@ -714,11 +737,12 @@ class _EditorPanelState extends State<EditorPanel> {
               Padding(
                 padding: const EdgeInsets.only(top: 6),
                 // 表情预览保留透明通道（contain，无裁剪、无底色）
-                child: Image.network(
-                  m.content,
+                child: CachedMemoryImage(
+                  dataUrl: m.content,
                   width: 64,
                   height: 64,
                   fit: m.type == 'sticker' ? BoxFit.contain : BoxFit.cover,
+                  cacheWidth: 128,
                 ),
               ),
           ],
@@ -730,7 +754,7 @@ class _EditorPanelState extends State<EditorPanel> {
                   value: m.showDateDivider,
                   onChanged: (v) {
                     m.showDateDivider = v ?? false;
-                    widget.onChanged();
+                    _notify();
                   },
                 ),
                 const Text('该条前插入时间分割线'),
